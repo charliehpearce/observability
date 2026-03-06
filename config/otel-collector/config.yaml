@@ -1,0 +1,72 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 5s
+    send_batch_size: 1024
+
+  # Add resource detection (hostname, OS, etc.)
+  resourcedetection:
+    detectors: [env, system]
+    system:
+      hostname_sources: ["os"]
+
+  # Enrich logs/traces with resource attributes
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: production
+        action: upsert
+
+exporters:
+  # Logs -> Loki
+  loki:
+    endpoint: http://loki:3100/loki/api/v1/push
+    default_labels_enabled:
+      exporter: false
+      job: true
+
+  # Traces -> Tempo
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+
+  # Metrics -> Prometheus
+  prometheusremotewrite:
+    endpoint: http://prometheus:9090/api/v1/write
+    resource_to_telemetry_conversion:
+      enabled: true
+
+  # Debug output (disable in prod if too noisy)
+  debug:
+    verbosity: basic
+
+service:
+  pipelines:
+    logs:
+      receivers: [otlp]
+      processors: [resourcedetection, resource, batch]
+      exporters: [loki, debug]
+
+    traces:
+      receivers: [otlp]
+      processors: [resourcedetection, resource, batch]
+      exporters: [otlp/tempo, debug]
+
+    metrics:
+      receivers: [otlp]
+      processors: [resourcedetection, resource, batch]
+      exporters: [prometheusremotewrite, debug]
+
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      address: 0.0.0.0:8888
