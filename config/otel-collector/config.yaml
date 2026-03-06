@@ -25,12 +25,11 @@ processors:
         action: upsert
 
 exporters:
-  # Logs -> Loki
-  loki:
-    endpoint: http://loki:3100/loki/api/v1/push
-    default_labels_enabled:
-      exporter: false
-      job: true
+  # Logs -> Loki (via OTLP HTTP — Loki supports native OTLP ingestion)
+  otlphttp/loki:
+    endpoint: http://loki:3100/otlp
+    tls:
+      insecure: true
 
   # Traces -> Tempo
   otlp/tempo:
@@ -53,7 +52,7 @@ service:
     logs:
       receivers: [otlp]
       processors: [resourcedetection, resource, batch]
-      exporters: [loki, debug]
+      exporters: [otlphttp/loki, debug]
 
     traces:
       receivers: [otlp]
@@ -68,5 +67,3 @@ service:
   telemetry:
     logs:
       level: info
-    metrics:
-      address: 0.0.0.0:8888
