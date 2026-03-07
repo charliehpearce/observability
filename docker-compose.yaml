@@ -175,7 +175,7 @@ services:
     restart: on-failure
 networks:
   signoz-net:
-    name: signoz-net
+    name: observability
 volumes:
   clickhouse:
     name: signoz-clickhouse
